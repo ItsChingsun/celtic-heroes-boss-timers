@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Celtic Heroes Boss Timers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: #0b1020;
+      color: #f5f5f5;
+    }
+
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      background: radial-gradient(circle at top, #1a2340, #050814);
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      opacity: 0.8;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    .layout {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .boss-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    .boss-card {
+      background: rgba(12, 19, 40, 0.95);
+      border-radius: 0.875rem;
+      padding: 1rem 1.1rem;
+      box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(115, 160, 255, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .boss-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .boss-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .boss-zone {
+      font-size: 0.8rem;
+      opacity: 0.75;
+    }
+
+    .boss-meta {
+      font-size: 0.8rem;
+      opacity: 0.85;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.8rem;
+    }
+
+    .pill {
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid rgba(135, 180, 255, 0.4);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    .boss-time {
+      font-size: 0.9rem;
+      margin-top: 0.1rem;
+    }
+
+    .boss-status {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-top: 0.1rem;
+    }
+
+    .status-waiting {
+      color: #fbbf24;
+    }
+
+    .status-up {
+      color: #4ade80;
+    }
+
+    .status-unknown {
+      color: #9ca3af;
+    }
+
+    .boss-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.55rem;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 0.35rem 0.9rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: white;
+      font-weight: 500;
+      box-shadow: 0 0.5rem 1rem rgba(37, 99, 235, 0.45);
+      transition: transform 0.06s ease, box-shadow 0.06s ease,
+        filter 0.06s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0.7rem 1.3rem rgba(37, 99, 235, 0.65);
+      filter: brightness(1.05);
+    }
+
+    button:active {
+      transform: translateY(0px) scale(0.99);
+      box-shadow: 0 0.3rem 0.7rem rgba(37, 99, 235, 0.45);
+      filter: brightness(0.97);
+    }
+
+    button.secondary {
+      background: rgba(31, 41, 55, 0.9);
+      box-shadow: none;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+    }
+
+    button.secondary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0.4rem 0.9rem rgba(15, 23, 42, 0.8);
+    }
+
+    .footer-note {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <h1>Celtic Heroes Boss Timers</h1>
+    <div class="subtitle">
+      Click <strong>Killed now</strong> after you kill a boss. Timers are saved
+      in your browser. A sound plays when a boss' respawn window begins.
+    </div>
+
+    <div id="bossList" class="boss-list"></div>
+
+    <div class="footer-note">
+      🔔 You can edit the boss list in the <code>bosses</code> array inside
+      this HTML file to add more bosses or adjust their respawn times.
+    </div>
+  </div>
+
+  <!-- Your spawn sound file – must exist as spawn.mp3 in the same folder -->
+  <audio id="spawnSound" src="spawn.mp3" preload="auto"></audio>
+
+  <script>
+    // --- CONFIGURABLE BOSS LIST ------------------------------------
+    // Add or edit bosses here. respawnMinutes is the minimum respawn time.
+    const bosses = [
+      {
+        id: "stonefang",
+        name: "Stonefang",
+        zone: "Lirs Reach",
+        respawnMinutes: 5,
+      },
+      {
+        id: "allknow",
+        name: "Allknow",
+        zone: "Otherworld (Frozen)",
+        respawnMinutes: 107, // 1h 47m
+      },
+      {
+        id: "swampie",
+        name: "Swampie",
+        zone: "Otherworld",
+        respawnMinutes: 120,
+      },
+      {
+        id: "woody",
+        name: "Woody",
+        zone: "Otherworld",
+        respawnMinutes: 133,
+      },
+      {
+        id: "chain",
+        name: "Chain",
+        zone: "Otherworld",
+        respawnMinutes: 146,
+      },
+      {
+        id: "grom",
+        name: "Grom",
+        zone: "Otherworld",
+        respawnMinutes: 180,
+      },
+      // Add more bosses as needed...
+    ];
+
+    const STORAGE_KEY = "ch-boss-timers-v1";
+
+    // state: { [bossId]: { lastKilledAt: ISO_STRING } }
+    let timersState = {};
+    const viewMap = {};          // bossId -> { lastKilledEl, nextSpawnEl, timeEl, statusEl }
+    const spawnAlertPlayed = {}; // bossId -> boolean (has sound played for current spawn?)
+
+    // --- SOUND USING spawn.mp3 --------------------------------------
+    function playSpawnSound() {
+      const audio = document.getElementById("spawnSound");
+      if (!audio) return;
+
+      audio.currentTime = 0;
+      audio.play().catch(err => {
+        // In case browser blocks autoplay without user interaction
+        console.warn("Audio could not play automatically:", err);
+      });
+    }
+
+    // --- STORAGE ---------------------------------------------------
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        timersState = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.warn("Failed to load timers from storage:", e);
+        timersState = {};
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(timersState));
+      } catch (e) {
+        console.warn("Failed to save timers:", e);
+      }
+    }
+
+    function formatDateTime(dt) {
+      if (!dt) return "—";
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return "—";
+      return (
+        d.toLocaleDateString() +
+        " " +
+        d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      );
+    }
+
+    function formatDuration(ms) {
+      if (ms <= 0) return "0s";
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+
+      const parts = [];
+      if (h > 0) parts.push(h + "h");
+      if (m > 0 || h > 0) parts.push(m + "m");
+      parts.push(s.toString().padStart(2, "0") + "s");
+      return parts.join(" ");
+    }
+
+    function computeTimerInfo(boss, stateEntry) {
+      if (!stateEntry || !stateEntry.lastKilledAt) {
+        return {
+          lastKilledAt: null,
+          nextSpawnAt: null,
+          timeLeftMs: null,
+          isUp: false,
+        };
+      }
+
+      const lastKilled = new Date(stateEntry.lastKilledAt);
+      if (isNaN(lastKilled.getTime())) {
+        return {
+          lastKilledAt: null,
+          nextSpawnAt: null,
+          timeLeftMs: null,
+          isUp: false,
+        };
+      }
+
+      const respawnMs = boss.respawnMinutes * 60 * 1000;
+      const nextSpawnAt = new Date(lastKilled.getTime() + respawnMs);
+      const now = new Date();
+      const timeLeftMs = nextSpawnAt.getTime() - now.getTime();
+
+      return {
+        lastKilledAt: lastKilled,
+        nextSpawnAt,
+        timeLeftMs,
+        isUp: timeLeftMs <= 0,
+      };
+    }
+
+    function handleKilledNow(bossId) {
+      timersState[bossId] = {
+        lastKilledAt: new Date().toISOString(),
+      };
+      spawnAlertPlayed[bossId] = false; // reset sound flag for this boss
+      saveState();
+      updateBossView(bossId);
+    }
+
+    function handleClearTimer(bossId) {
+      delete timersState[bossId];
+      spawnAlertPlayed[bossId] = false;
+      saveState();
+      updateBossView(bossId);
+    }
+
+    function createBossCard(boss) {
+      const card = document.createElement("div");
+      card.className = "boss-card";
+
+      const header = document.createElement("div");
+      header.className = "boss-header";
+
+      const titleWrap = document.createElement("div");
+      const nameEl = document.createElement("div");
+      nameEl.className = "boss-name";
+      nameEl.textContent = boss.name;
+
+      const zoneEl = document.createElement("div");
+      zoneEl.className = "boss-zone";
+      zoneEl.textContent = boss.zone;
+
+      titleWrap.appendChild(nameEl);
+      titleWrap.appendChild(zoneEl);
+
+      const respawnPill = document.createElement("div");
+      respawnPill.className = "pill";
+      respawnPill.textContent = `Respawn ~ ${boss.respawnMinutes} min`;
+
+      header.appendChild(titleWrap);
+      header.appendChild(respawnPill);
+
+      const metaRow = document.createElement("div");
+      metaRow.className = "boss-meta";
+
+      const lastKilledEl = document.createElement("div");
+      lastKilledEl.textContent = "Last killed: —";
+
+      const nextSpawnEl = document.createElement("div");
+      nextSpawnEl.textContent = "Next spawn: —";
+
+      metaRow.appendChild(lastKilledEl);
+      metaRow.appendChild(nextSpawnEl);
+
+      const timeEl = document.createElement("div");
+      timeEl.className = "boss-time";
+      timeEl.textContent = "Timer not started.";
+
+      const statusEl = document.createElement("div");
+      statusEl.className = "boss-status status-unknown";
+      statusEl.textContent = "Status: unknown";
+
+      const footer = document.createElement("div");
+      footer.className = "boss-footer";
+
+      const killBtn = document.createElement("button");
+      killBtn.textContent = "Killed now";
+      killBtn.addEventListener("click", () => handleKilledNow(boss.id));
+
+      const clearBtn = document.createElement("button");
+      clearBtn.textContent = "Clear";
+      clearBtn.className = "secondary";
+      clearBtn.addEventListener("click", () => handleClearTimer(boss.id));
+
+      footer.appendChild(killBtn);
+      footer.appendChild(clearBtn);
+
+      card.appendChild(header);
+      card.appendChild(metaRow);
+      card.appendChild(timeEl);
+      card.appendChild(statusEl);
+      card.appendChild(footer);
+
+      viewMap[boss.id] = {
+        lastKilledEl,
+        nextSpawnEl,
+        timeEl,
+        statusEl,
+      };
+
+      return card;
+    }
+
+    function updateBossView(bossId) {
+      const boss = bosses.find((b) => b.id === bossId);
+      if (!boss) return;
+      const view = viewMap[bossId];
+      if (!view) return;
+
+      const stateEntry = timersState[bossId];
+      const info = computeTimerInfo(boss, stateEntry);
+
+      view.lastKilledEl.textContent =
+        "Last killed: " + formatDateTime(info.lastKilledAt);
+      view.nextSpawnEl.textContent =
+        "Next spawn: " + formatDateTime(info.nextSpawnAt);
+
+      if (!info.lastKilledAt) {
+        view.timeEl.textContent = "Timer not started.";
+        view.statusEl.textContent = "Status: unknown";
+        view.statusEl.className = "boss-status status-unknown";
+        return;
+      }
+
+      if (typeof info.timeLeftMs === "number" && info.timeLeftMs > 0) {
+        view.timeEl.textContent =
+          "Respawns in " + formatDuration(info.timeLeftMs);
+        view.statusEl.textContent = "Status: waiting";
+        view.statusEl.className = "boss-status status-waiting";
+        // still waiting → do not play sound, keep/reset flag
+        spawnAlertPlayed[bossId] = false;
+      } else {
+        view.timeEl.textContent =
+          "Spawn window open (minimum respawn passed).";
+        view.statusEl.textContent = "Status: should be up";
+        view.statusEl.className = "boss-status status-up";
+
+        // Play sound once when it first becomes "up"
+        if (!spawnAlertPlayed[bossId]) {
+          playSpawnSound();
+          spawnAlertPlayed[bossId] = true;
+        }
+      }
+    }
+
+    function updateAllBossViews() {
+      for (const boss of bosses) {
+        updateBossView(boss.id);
+      }
+    }
+
+    function init() {
+      loadState();
+
+      const listEl = document.getElementById("bossList");
+      bosses.forEach((boss) => {
+        const card = createBossCard(boss);
+        listEl.appendChild(card);
+      });
+
+      updateAllBossViews();
+      setInterval(updateAllBossViews, 1000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
