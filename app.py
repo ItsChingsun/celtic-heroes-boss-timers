@@ -12,10 +12,6 @@ st.set_page_config(page_title="Spam Detector Dashboard", layout="wide")
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-# Add these in Streamlit Cloud -> Settings -> Secrets
-# GOOGLE_CLIENT_ID = "your-client-id"
-# GOOGLE_CLIENT_SECRET = "your-client-secret"
-
 ALLOWED_USERS = [
     "chingvong26@gmail.com"
 ]
@@ -61,49 +57,53 @@ def label_to_text(label: int) -> str:
     return "Spam" if label == 1 else "Not Spam"
 
 
+def get_current_user_email():
+    return getattr(st.user, "email", None)
+
+
 def save_feedback(
     message: str,
     predicted_label: str,
     correct_label: str,
     spam_probability: float,
 ) -> None:
+    user_email = get_current_user_email()
+
     supabase.table("spam_feedback").insert(
         {
             "message": message,
             "predicted_label": predicted_label,
             "correct_label": correct_label,
             "spam_probability": spam_probability,
+            "user_email": user_email,
         }
     ).execute()
 
 
 def load_feedback():
-    response = (
-        supabase.table("spam_feedback")
-        .select("*")
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return response.data if response.data else []
+    try:
+        response = (
+            supabase.table("spam_feedback")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return response.data if response.data else []
+    except Exception:
+        st.error("Database error. Check Supabase setup and key.")
+        return []
 
 
 def require_dashboard_login():
-    # Step 1: check if st.user exists
-    if not hasattr(st, "user"):
-        st.error("Authentication not supported in this Streamlit version.")
-        st.stop()
-
-    # Step 2: check login safely
     if not getattr(st.user, "is_logged_in", False):
         st.warning("Please log in with Google to view the dashboard.")
         st.login("google")
         st.stop()
 
-    # Step 3: check email
-    user_email = getattr(st.user, "email", None)
+    user_email = get_current_user_email()
 
     if user_email not in ALLOWED_USERS:
-        st.error("Access denied.")
+        st.error("Access denied. Your account is not authorized for the dashboard.")
         st.stop()
 
     st.success(f"Logged in as: {user_email}")
@@ -155,6 +155,11 @@ with tab1:
         st.write(f"Spam probability: {result['spam_probability']:.2%}")
         st.write("### Teach the model")
 
+        if getattr(st.user, "is_logged_in", False):
+            st.info(f"Signed in as: {get_current_user_email()}")
+        else:
+            st.info("Feedback can still be saved without login, but user email will be blank.")
+
         col1, col2 = st.columns(2)
 
         if col1.button("This is Spam"):
@@ -199,6 +204,10 @@ with tab2:
         c2.metric("Spam labels", spam_rows)
         c3.metric("Not Spam labels", not_spam_rows)
 
+        if "user_email" in df.columns:
+            unique_users = df["user_email"].dropna()
+            st.metric("Unique signed-in users", int(unique_users.nunique()))
+
         st.write("### Label distribution")
         chart_data = df["correct_label"].value_counts()
         st.bar_chart(chart_data)
@@ -210,6 +219,18 @@ with tab2:
             trend_df = trend_df.sort_values("created_at")
             trend_df = trend_df.set_index("created_at")
             st.line_chart(trend_df)
+
+        if "user_email" in df.columns:
+            st.write("### Feedback by user")
+            user_counts = df["user_email"].fillna("Anonymous").value_counts()
+            st.bar_chart(user_counts)
+
+            st.write("### Signed-in users")
+            users_df = pd.DataFrame(
+                {"user_email": sorted(df["user_email"].dropna().unique())}
+            )
+            if not users_df.empty:
+                st.dataframe(users_df, use_container_width=True)
 
         st.write("### Saved feedback table")
         st.dataframe(df, use_container_width=True)
