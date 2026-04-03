@@ -1,6 +1,5 @@
-streamlit
+streamlit[auth]>=1.36.0
 scikit-learn
 joblib
 supabase
 pandas
-streamlit>=1.36.0
