@@ -13,7 +13,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 ALLOWED_USERS = [
-    "chingvong26@gmail.com"
+    "chingvong26@gmail.com",
     "biltsovander@gmail.com"
 ]
 
